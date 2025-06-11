@@ -1,0 +1,16 @@
+jira:
+  base_url: "https://your-domain.atlassian.net"
+  token: "your-personal-access-token"  # JIRA Personal Access Token (Bearer authentication)
+
+ai:
+  provider: "google"
+  api_key: "your-google-ai-api-key"
+  models:
+    explain: "gemini-pro"
+    enhance: "gemini-pro"
+    chat: "gemini-pro"
+
+cli:
+  output_format: "table"
+  color: true
+  verbose: false
