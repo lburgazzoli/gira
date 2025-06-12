@@ -2,6 +2,7 @@ package jira
 
 import (
 	"fmt"
+	"strings"
 )
 
 var (
@@ -19,69 +20,61 @@ var (
 )
 
 func GetChildIssues(client *Client, parentIssue *Issue) ([]*Issue, error) {
-	var children []*Issue
+	// Pre-allocate children slice with estimated capacity
+	estimatedCapacity := len(parentIssue.Fields.Subtasks) + 5 // subtasks + some JQL results
+	children := make([]*Issue, 0, estimatedCapacity)
 
-	// Add subtasks (direct children)
-	for _, subtask := range parentIssue.Fields.Subtasks {
-		child, err := client.GetIssue(subtask.Key)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get subtask %s: %w", subtask.Key, err)
-		}
-		children = append(children, child)
-	}
-
-	// Search for child issues using different JQL queries based on issue type and relationships
-	var jqlQueries []string
-
-	// For epics, search for issues that have this epic as their Epic Link
-	if parentIssue.Fields.IssueType.Name == "Epic" {
-		jqlQueries = append(jqlQueries, fmt.Sprintf("\"Epic Link\" = %s", parentIssue.Key))
-	}
-
-	// Always search for direct parent-child relationships
-	jqlQueries = append(jqlQueries, fmt.Sprintf("parent = %s", parentIssue.Key))
-
-	// For non-epic issues that might also have epic relationships
-	// (e.g., a Story that has both subtasks and is linked to an epic)
-	// We should also search for issues that have this issue as their Epic Link
-	// This handles cases where any issue type can act as an "epic" in some workflows
-	if parentIssue.Fields.IssueType.Name != "Epic" {
-		jqlQueries = append(jqlQueries, fmt.Sprintf("\"Epic Link\" = %s", parentIssue.Key))
-	}
-
-	// Collect all found issues
+	// Collect all found issues to avoid duplicates
 	foundKeys := make(map[string]bool)
 
-	// Add subtasks to found keys to avoid duplicates
-	for _, subtask := range parentIssue.Fields.Subtasks {
-		foundKeys[subtask.Key] = true
+	// Batch fetch subtasks using JQL if we have any
+	if len(parentIssue.Fields.Subtasks) > 0 {
+		subtaskKeys := make([]string, len(parentIssue.Fields.Subtasks))
+		for i, subtask := range parentIssue.Fields.Subtasks {
+			subtaskKeys[i] = subtask.Key
+			foundKeys[subtask.Key] = true
+		}
+
+		// Use JQL to batch fetch subtasks
+		subtaskJQL := fmt.Sprintf("key IN (%s)", strings.Join(subtaskKeys, ","))
+		result, err := client.SearchIssues(subtaskJQL, childrenSearchFields...)
+		if err != nil {
+			return nil, fmt.Errorf("failed to batch fetch subtasks: %w", err)
+		}
+
+		for _, issue := range result.Issues {
+			children = append(children, &issue)
+		}
 	}
 
-	// Execute each JQL query
-	for _, jql := range jqlQueries {
-		result, err := client.SearchIssues(jql, childrenSearchFields)
-		if err != nil {
-			return nil, fmt.Errorf("JQL search failed for '%s': %v\n", jql, err)
+	// Build combined JQL query for parent-child and Epic Link relationships
+	// All issues can potentially have Epic Link relationships, simplifying the logic
+	combinedJQL := fmt.Sprintf("parent = %s OR \"Epic Link\" = %s", parentIssue.Key, parentIssue.Key)
+
+	// Execute the combined JQL query
+	result, err := client.SearchIssues(combinedJQL, childrenSearchFields...)
+	if err != nil {
+		return nil, fmt.Errorf("JQL search failed for '%s': %w", combinedJQL, err)
+	}
+
+	// Add issues found via JQL search (avoiding duplicates)
+	for _, issue := range result.Issues {
+		if foundKeys[issue.Key] {
+			continue
 		}
 
-		// Add issues found via JQL search (avoiding duplicates)
-		for _, issue := range result.Issues {
-			if !foundKeys[issue.Key] {
-				children = append(children, &issue)
-				foundKeys[issue.Key] = true
-			}
-		}
+		children = append(children, &issue)
+		foundKeys[issue.Key] = true
 	}
 
 	return children, nil
 }
 
 func BuildIssueTree(client *Client, issue *Issue, maxDepth int) error {
-	// Initialize issue tree fields
-	issue.Children = make([]*Issue, 0)
-
 	// Get children (both subtasks and child issues) if we haven't reached max depth
 	if maxDepth <= 0 {
+		// Initialize empty children slice
+		issue.Children = make([]*Issue, 0)
 		return nil
 	}
 
@@ -89,6 +82,9 @@ func BuildIssueTree(client *Client, issue *Issue, maxDepth int) error {
 	if err != nil {
 		return fmt.Errorf("failed to get child issues for %s: %w", issue.Key, err)
 	}
+
+	// Pre-allocate children slice with exact capacity
+	issue.Children = make([]*Issue, 0, len(children))
 
 	for _, child := range children {
 		err := BuildIssueTree(client, child, maxDepth-1)

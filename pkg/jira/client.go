@@ -133,7 +133,7 @@ func (c *Client) UpdateIssue(key string, update IssueUpdate) (*Issue, error) {
 	return c.GetIssue(key)
 }
 
-func (c *Client) SearchIssues(jql string, fields []string) (*SearchResult, error) {
+func (c *Client) SearchIssues(jql string, fields ...string) (*SearchResult, error) {
 	var params []Parameter
 	params = append(params, Parameter{Key: "jql", Value: jql})
 	

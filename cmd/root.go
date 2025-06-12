@@ -6,7 +6,6 @@ import (
 
 	"github.com/lburgazzoli/gira/cmd/config"
 	"github.com/lburgazzoli/gira/cmd/get"
-	"github.com/lburgazzoli/gira/cmd/tree"
 	"github.com/lburgazzoli/gira/internal/version"
 	pkgConfig "github.com/lburgazzoli/gira/pkg/config"
 	"github.com/spf13/cobra"
@@ -38,13 +37,12 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gira/config.yaml)")
-	rootCmd.PersistentFlags().String("output", "table", "output format (table|json|yaml)")
+	rootCmd.PersistentFlags().StringP("output", "o", "", "output format (table|json|yaml)")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose output")
 
 	// Add subcommands
 	rootCmd.AddCommand(config.Cmd)
 	rootCmd.AddCommand(get.Cmd)
-	rootCmd.AddCommand(tree.Cmd)
 }
 
 func initConfig() {
