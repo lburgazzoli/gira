@@ -6,15 +6,11 @@ An AI-powered JIRA CLI tool built in Go that combines traditional JIRA operation
 
 ✅ **Complete JIRA Integration**
 - Issue and project retrieval with multiple output formats
+- Issue hierarchy visualization with `--tree` option
 - Bearer token authentication with JIRA Personal Access Tokens
 - Support for JIRA Cloud/Server API v2
 - Automatic rate limiting with exponential backoff retry
 
-✅ **Advanced Issue Hierarchy Visualization**
-- Tree view of issue relationships with ASCII art
-- Support for Epic Links, parent-child relationships, and subtasks
-- Multiple output formats: tree view, table, JSON, YAML
-- Depth control and reverse view options
 
 ✅ **Configuration Management**
 - Interactive setup wizard
@@ -66,14 +62,14 @@ gira config set jira.token "your-personal-access-token"
 # Get an issue
 gira get issue PROJECT-123
 
+# Get an issue with tree hierarchy
+gira get issue EPIC-456 --tree
+
 # Get a project
 gira get project MYPROJECT
 
-# View issue hierarchy as a tree
-gira tree EPIC-456
-
-# View with more details
-gira tree EPIC-456 --all --depth 5
+# Check version
+gira version
 ```
 
 ## Commands
@@ -100,38 +96,43 @@ gira get issue PROJECT-123
 gira get issue PROJECT-123 --output json
 gira get issue PROJECT-123 --output yaml
 
+# Get issue with hierarchy tree view
+gira get issue EPIC-123 --tree
+gira get issue EPIC-123 --tree --tree-depth 5
+gira get issue EPIC-123 --tree --tree-reverse
+gira get issue EPIC-123 --tree --tree-all
+
+# Tree view with different output formats
+gira get issue EPIC-123 --tree --output table
+gira get issue EPIC-123 --tree --output json
+gira get issue EPIC-123 --tree --output yaml
+
 # Get project information
 gira get project MYPROJECT
 ```
 
-### Tree Command
+### Version Command
 
-Visualize issue hierarchies including Epic Links, parent-child relationships, and subtasks:
+Display build information including version, commit, and build date:
 
 ```bash
-# Basic tree view
-gira tree EPIC-123
+# Default plain text output
+gira version
 
 # Table format
-gira tree EPIC-123 --table
-gira tree EPIC-123 --output table
-
-# Control depth and show all fields
-gira tree EPIC-123 --depth 5 --all
-
-# Reverse view (children first)
-gira tree EPIC-123 --reverse
+gira version --output table
 
 # JSON/YAML output
-gira tree EPIC-123 --output json
-gira tree EPIC-123 --output yaml
+gira version --output json
+gira version --output yaml
 ```
+
 
 ### Global Options
 
 ```bash
 # Verbose output
-gira --verbose tree EPIC-123
+gira --verbose get issue PROJECT-123
 
 # Custom config file
 gira --config /path/to/config.yaml get issue PROJECT-123
@@ -139,7 +140,7 @@ gira --config /path/to/config.yaml get issue PROJECT-123
 # Output formats
 gira --output table get issue PROJECT-123
 gira --output json get project MYPROJECT
-gira --output yaml tree EPIC-123
+gira --output yaml version
 ```
 
 ## Configuration
@@ -179,47 +180,6 @@ Gira uses JIRA Personal Access Tokens with Bearer authentication:
 2. **Configure the token** using `gira config init` or `gira config set jira.token "your-token"`
 3. **Set your JIRA base URL** using `gira config set jira.base_url "https://your-domain.atlassian.net"`
 
-## Examples
-
-### Tree Visualization
-
-The tree command provides comprehensive issue hierarchy visualization:
-
-```bash
-# Example output for an Epic with multiple child issues
-$ gira tree RHOAIENG-25251 --depth 2
-
-RHOAIENG-25251: [ODH Operator] Support Kueue for Enhanced Workload Management in OpenShift AI [In Progress]
-├── RHOAIENG-27390: [DOC] Add documentation for the new HardwareProfile API [New]
-├── RHOAIENG-27389: [DOC] Add documentation for Kueue migration and supported configurations [New]
-├── RHOAIENG-26727: Add the new HardwareProfile API to the API tiers for OpenShift AI doc [Backlog]
-├── RHOAIENG-26595: [QE] Include new Kueue operator and its dependencies in the QE repositories [Backlog]
-├── RHOAIENG-26500: [ODH Operator] Remove VAP Config and Bindings from RHOAI Operator Kueue Manifests [Backlog]
-├── RHOAIENG-26410: [ODH Operator] Set controller deployment to 3 replicas for webhook high availability [Backlog]
-├── RHOAIENG-26336: [ODH Operator] Ensure the admin-rolebinding only include valid groups [Backlog]
-├── RHOAIENG-26316: [SPIKE] Research and define default Kueue Operator configuration values [Backlog]
-├── RHOAIENG-26315: [SPIKE] Research and define default ClusterQueue configuration values [Backlog]
-├── RHOAIENG-26135: [QE] Include new Kueue operator and its dependencies in the QE repositories [In Progress]
-├── RHOAIENG-25404: [ODH Operator] Create OpenShift Kueue Configuration [Backlog]
-├── RHOAIENG-25258: [ODH Operator] Implement Validating Webhook for Kueue label Enforcement [Review]
-├── RHOAIENG-25255: [ODH Operator] Migrate Hardware Profile Management to RHOAI Operator [Backlog]
-├── RHOAIENG-25253: [ODH Operator] Create Default Kueue Resources for labeled Namespaces [Backlog]
-├── RHOAIENG-25252: [ODH Operator] Support "Unmanaged" Kueue in OpenShift AI [In Progress]
-└── RHOAIENG-24289: Move Kueue manifests into RHOAI operator [Resolved]
-```
-
-### Multiple Output Formats
-
-```bash
-# Table format with detailed information
-$ gira tree EPIC-123 --table --all
-
-# JSON output for programmatic processing
-$ gira tree EPIC-123 --output json | jq '.children[].issue.key'
-
-# YAML output for configuration management
-$ gira tree EPIC-123 --output yaml
-```
 
 ## Development
 
@@ -242,7 +202,7 @@ go mod tidy
 
 ```
 gira/
-├── cmd/                 # CLI commands (get, config, tree)
+├── cmd/                 # CLI commands (get, config, version)
 ├── pkg/jira/           # JIRA client, types, and operations
 ├── pkg/ai/             # AI provider interface (planned)
 ├── pkg/config/         # Configuration management

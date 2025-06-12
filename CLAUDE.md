@@ -39,7 +39,7 @@ gira/
 ├── cmd/                 # CLI command packages organized by functionality
 │   ├── config/         # Configuration management commands (init, show, set)
 │   ├── get/            # Resource retrieval commands (issue, project)
-│   ├── tree/           # Issue hierarchy visualization commands
+│   ├── version/        # Version information command
 │   └── root.go         # Root command and CLI initialization
 ├── pkg/jira/           # JIRA client, types, and operations
 ├── pkg/ai/             # AI provider interface and Google implementation
@@ -96,12 +96,13 @@ For hosted JIRA instances, the tool uses:
 ### ✅ Implemented Features
 - **Config Command**: Interactive setup wizard with `init`, `show`, and `set` subcommands
 - **Get Commands**: Retrieve issues and projects with multiple output formats
-- **Tree Command**: Issue hierarchy visualization with ASCII art, supporting:
-  - Epic Link relationships (`"Epic Link" = EPIC-KEY`)
-  - Parent-child relationships (`parent = PARENT-KEY`)
-  - Direct subtasks traversal
-  - Multiple output formats (tree, table, JSON, YAML)
-  - Depth control and reverse view options
+  - Issue hierarchy visualization with `--tree` option supporting:
+    - Epic Link relationships (`"Epic Link" = EPIC-KEY`)
+    - Parent-child relationships (`parent = PARENT-KEY`)
+    - Direct subtasks traversal
+    - Multiple output formats (tree, table, JSON, YAML)
+    - Depth control and reverse view options
+- **Version Command**: Display build information with multiple output formats
 - **Multiple Output Formats**: table, JSON, YAML with proper formatting
 - **JIRA Authentication**: Bearer token support for personal access tokens
 - **Rate Limiting**: Automatic retry with exponential backoff for rate-limited requests
@@ -183,29 +184,6 @@ func init() {
 
 - **Error Handling**: Use modern Go error handling with `errors.As` and `errors.Is` instead of type assertions
 - **Constants**: Extract hardcoded strings to constants when they represent API endpoints, configuration keys, or repeated values
-- **Tree Hierarchy**: Embed hierarchy directly in domain types rather than using wrapper types:
-  ```go
-  // ✅ Direct embedding in Issue type
-  type Issue struct {
-      // ... existing fields
-      Parent   *Issue   `json:"parent,omitempty"`
-      Children []*Issue `json:"children,omitempty"`
-  }
-  
-  // ❌ Avoid wrapper types for tree traversal
-  type IssueTree struct {
-      Issue    *Issue
-      Parent   *IssueTree
-      Children []*IssueTree
-      Depth    int
-  }
-  ```
-  
-  Benefits:
-  - Simpler API: Work directly with domain objects
-  - Less memory overhead: No wrapper struct allocations
-  - More natural: Issues naturally have parent-child relationships
-  - Calculate depth during rendering instead of storing it
 
 ### Output Format Handling
 - **Global Flag Access**: Commands should respect the global `--output` flag from the root command
@@ -226,3 +204,24 @@ func init() {
 - **Format Support**: All commands should support table, JSON, and YAML output formats consistently
 - **Format Priority**: Respect command-specific flags (like `--table`) before checking global format
 - **Encoder Configuration**: Use consistent JSON/YAML encoder settings (indentation, etc.) across commands
+- **Default Output Format**: Commands should use appropriate defaults:
+  - Version command: Plain text format (not table) for better CLI UX
+  - Other commands: Table format for structured data display
+
+### Version Command Implementation
+The version command (`cmd/version/`) demonstrates proper output format handling:
+
+- **Build-time Information**: Uses Go's `-ldflags` to inject version, commit, and build date
+- **Makefile Integration**: Automatically extracts git information during build:
+  ```makefile
+  VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+  COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+  DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
+  
+  LDFLAGS = -X 'github.com/lburgazzoli/gira/internal/version.Version=$(VERSION)' \
+            -X 'github.com/lburgazzoli/gira/internal/version.Commit=$(COMMIT)' \
+            -X 'github.com/lburgazzoli/gira/internal/version.Date=$(DATE)'
+  ```
+- **Output Formats**: Supports plain text (default), table, JSON, and YAML
+- **Plain Text Format**: Uses simple `key : value` format for version information
+- **Version Package**: Separates version storage (`internal/version/`) from command logic (`cmd/version/`)
