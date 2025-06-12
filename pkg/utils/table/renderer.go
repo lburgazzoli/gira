@@ -79,6 +79,16 @@ func (r *Renderer) Append(values []any) error {
 	return r.table.Append(row)
 }
 
+// AppendAll adds multiple rows to the table in a single operation
+func (r *Renderer) AppendAll(rows [][]any) error {
+	for _, values := range rows {
+		if err := r.Append(values); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Render outputs the table to the configured writer
 func (r *Renderer) Render() error {
 	return r.table.Render()

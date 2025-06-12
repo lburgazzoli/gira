@@ -6,8 +6,7 @@ import (
 	"os"
 
 	"github.com/lburgazzoli/gira/internal/version"
-	"github.com/olekukonko/tablewriter"
-	"github.com/olekukonko/tablewriter/tw"
+	tableutils "github.com/lburgazzoli/gira/pkg/utils/table"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -56,23 +55,21 @@ func outputResult(cmd *cobra.Command, result VersionInfo) error {
 }
 
 func outputTable(versionInfo VersionInfo) error {
-	table := tablewriter.NewTable(os.Stdout)
-	table.Options(tablewriter.WithRendition(
-		tw.Rendition{
-			Settings: tw.Settings{
-				Separators: tw.Separators{
-					BetweenColumns: tw.Off,
-				},
-			},
-		},
-	))
+	renderer := tableutils.NewRenderer(
+		tableutils.WithHeaders("Field", "Value"),
+	)
 
-	table.Header("Field", "Value")
-	table.Append([]string{"Version", versionInfo.Version})
-	table.Append([]string{"Commit", versionInfo.Commit})
-	table.Append([]string{"Date", versionInfo.Date})
+	if err := renderer.Append([]any{"Version", versionInfo.Version}); err != nil {
+		return err
+	}
+	if err := renderer.Append([]any{"Commit", versionInfo.Commit}); err != nil {
+		return err
+	}
+	if err := renderer.Append([]any{"Date", versionInfo.Date}); err != nil {
+		return err
+	}
 
-	return table.Render()
+	return renderer.Render()
 }
 
 func outputPlain(versionInfo VersionInfo) error {

@@ -9,9 +9,8 @@ import (
 	"github.com/fatih/color"
 	"github.com/lburgazzoli/gira/pkg/config"
 	"github.com/lburgazzoli/gira/pkg/jira"
+	stringutils "github.com/lburgazzoli/gira/pkg/utils/strings"
 	tableutils "github.com/lburgazzoli/gira/pkg/utils/table"
-	"github.com/olekukonko/tablewriter"
-	"github.com/olekukonko/tablewriter/tw"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
@@ -125,90 +124,89 @@ func outputResult(cmd *cobra.Command, result interface{}) error {
 	case "table":
 		return outputTable(result)
 	case "":
-		// Default to table format when no output format is specified
-		return outputTable(result)
+		// Default to plain format for issues, table for other types
+		return outputPlain(result)
 	default:
 		return fmt.Errorf("unsupported output format: %s", outputFormat)
 	}
 }
 
-// createTable creates a new table with consistent formatting options
-func createTable() *tablewriter.Table {
-	table := tablewriter.NewTable(os.Stdout)
-	table.Options(tablewriter.WithRendition(
-		tw.Rendition{
-			Settings: tw.Settings{
-				Separators: tw.Separators{
-					BetweenColumns: tw.Off,
-				},
-			},
-		},
-	))
-	return table
-}
-
 func outputTable(result interface{}) error {
 	switch v := result.(type) {
 	case *jira.Issue:
-		table := createTable()
-		table.Header("Field", "Value")
-
-		table.Append([]string{"Key", v.Key})
-		table.Append([]string{"Summary", v.Fields.Summary})
-		table.Append([]string{"Status", v.Fields.Status.Name})
-		table.Append([]string{"Type", v.Fields.IssueType.Name})
-		table.Append([]string{"Priority", v.Fields.Priority.Name})
-		table.Append([]string{"Project", v.Fields.Project.Name})
+		renderer := tableutils.NewRenderer(
+			tableutils.WithHeaders("Field", "Value"),
+		)
 
 		assignee := "Unassigned"
 		if v.Fields.Assignee != nil {
 			assignee = v.Fields.Assignee.DisplayName
 		}
-		table.Append([]string{"Assignee", assignee})
-		table.Append([]string{"Reporter", v.Fields.Reporter.DisplayName})
-		table.Append([]string{"Created", v.Fields.Created.Format("2006-01-02 15:04:05")})
-		table.Append([]string{"Updated", v.Fields.Updated.Format("2006-01-02 15:04:05")})
 
-		if v.Fields.Description != "" {
-			// Truncate description for table display
-			desc := v.Fields.Description
-			if len(desc) > 100 {
-				desc = desc[:97] + "..."
-			}
-			table.Append([]string{"Description", desc})
+		rows := [][]any{
+			{"Key", v.Key},
+			{"Summary", v.Fields.Summary},
+			{"Status", v.Fields.Status.Name},
+			{"Type", v.Fields.IssueType.Name},
+			{"Priority", v.Fields.Priority.Name},
+			{"Project", v.Fields.Project.Name},
+			{"Assignee", assignee},
+			{"Reporter", v.Fields.Reporter.DisplayName},
+			{"Created", v.Fields.Created.Format("2006-01-02 15:04:05")},
+			{"Updated", v.Fields.Updated.Format("2006-01-02 15:04:05")},
+			{"Description", stringutils.Truncate(v.Fields.Description, 100)},
 		}
 
-		return table.Render()
+		if err := renderer.AppendAll(rows); err != nil {
+			return err
+		}
+
+		return renderer.Render()
 
 	case *jira.Project:
-		table := createTable()
-		table.Header("Field", "Value")
+		renderer := tableutils.NewRenderer(
+			tableutils.WithHeaders("Field", "Value"),
+		)
 
-		table.Append([]string{"Key", v.Key})
-		table.Append([]string{"Name", v.Name})
-		table.Append([]string{"ID", v.ID})
+		rows := [][]any{
+			{"Key", v.Key},
+			{"Name", v.Name},
+			{"ID", v.ID},
+		}
 
-		return table.Render()
+		if err := renderer.AppendAll(rows); err != nil {
+			return err
+		}
+
+		return renderer.Render()
 
 	case *config.Config:
-		table := createTable()
-		table.Header("Configuration", "Value")
+		renderer := tableutils.NewRenderer(
+			tableutils.WithHeaders("Configuration", "Value"),
+		)
 
-		table.Append([]string{"JIRA Base URL", v.JIRA.BaseURL})
-		table.Append([]string{"JIRA Token", v.JIRA.Token})
-		table.Append([]string{"AI Provider", v.AI.Provider})
-		table.Append([]string{"AI API Key", v.AI.APIKey})
-		table.Append([]string{"Output Format", v.CLI.OutputFormat})
-		table.Append([]string{"Colors Enabled", fmt.Sprintf("%t", v.CLI.Color)})
-		table.Append([]string{"Verbose Mode", fmt.Sprintf("%t", v.CLI.Verbose)})
+		rows := [][]any{
+			{"JIRA Base URL", v.JIRA.BaseURL},
+			{"JIRA Token", v.JIRA.Token},
+			{"AI Provider", v.AI.Provider},
+			{"AI API Key", v.AI.APIKey},
+			{"Output Format", v.CLI.OutputFormat},
+			{"Colors Enabled", fmt.Sprintf("%t", v.CLI.Color)},
+			{"Verbose Mode", fmt.Sprintf("%t", v.CLI.Verbose)},
+		}
 
+		// Add AI model rows if they exist
 		if len(v.AI.Models) > 0 {
 			for key, model := range v.AI.Models {
-				table.Append([]string{fmt.Sprintf("AI Model (%s)", key), model})
+				rows = append(rows, []any{fmt.Sprintf("AI Model (%s)", key), model})
 			}
 		}
 
-		return table.Render()
+		if err := renderer.AppendAll(rows); err != nil {
+			return err
+		}
+
+		return renderer.Render()
 
 	default:
 		jsonBytes, err := json.MarshalIndent(result, "", "  ")
@@ -216,6 +214,45 @@ func outputTable(result interface{}) error {
 			return err
 		}
 		fmt.Println(string(jsonBytes))
+	}
+	return nil
+}
+
+func outputPlain(result interface{}) error {
+	switch v := result.(type) {
+	case *jira.Issue:
+		fmt.Printf("%-11s: %s\n", "Issue", v.Key)
+		fmt.Printf("%-11s: %s\n", "Summary", v.Fields.Summary)
+		fmt.Printf("%-11s: %s\n", "Status", v.Fields.Status.Name)
+		fmt.Printf("%-11s: %s\n", "Type", v.Fields.IssueType.Name)
+		fmt.Printf("%-11s: %s\n", "Priority", v.Fields.Priority.Name)
+		fmt.Printf("%-11s: %s\n", "Project", v.Fields.Project.Name)
+
+		if v.Fields.Assignee != nil {
+			fmt.Printf("%-11s: %s\n", "Assignee", v.Fields.Assignee.DisplayName)
+		} else {
+			fmt.Printf("%-11s: Unassigned\n", "Assignee")
+		}
+
+		fmt.Printf("%-11s: %s\n", "Reporter", v.Fields.Reporter.DisplayName)
+		fmt.Printf("%-11s: %s\n", "Created", v.Fields.Created.Format("2006-01-02 15:04:05"))
+		fmt.Printf("%-11s: %s\n", "Updated", v.Fields.Updated.Format("2006-01-02 15:04:05"))
+
+		if v.Fields.Description != "" {
+			fmt.Printf("\n")
+			if err := stringutils.PrintWrapped(os.Stdout, v.Fields.Description, 100); err != nil {
+				return err
+			}
+		}
+
+	case *jira.Project:
+		fmt.Printf("Project: %s\n", v.Key)
+		fmt.Printf("Name: %s\n", v.Name)
+		fmt.Printf("ID: %s\n", v.ID)
+
+	default:
+		// For other types, fall back to table format
+		return outputTable(result)
 	}
 	return nil
 }
@@ -377,11 +414,9 @@ func renderTreeTable(rootIssue *jira.Issue) error {
 
 	collectTableRowsRecursively(rootIssue, &rows, 0, true)
 
-	// Add all collected rows to the table
-	for i := range rows {
-		if err := t.Append(rows[i]); err != nil {
-			return err
-		}
+	// Add all collected rows to the table using AppendAll
+	if err := t.AppendAll(rows); err != nil {
+		return err
 	}
 
 	// Render the table
@@ -446,7 +481,7 @@ func buildTableRow(issue *jira.Issue, depth int, isLast bool) []any {
 		return []any{
 			idColumn,
 			issue.Fields.IssueType.Name,
-			truncateString(issue.Fields.Summary, 40),
+			stringutils.Truncate(issue.Fields.Summary, 40),
 			issue.Fields.Status.Name,
 			issue.Fields.Priority.Name,
 			getAssigneeDisplay(issue),
@@ -458,15 +493,8 @@ func buildTableRow(issue *jira.Issue, depth int, isLast bool) []any {
 	return []any{
 		idColumn,
 		issue.Fields.IssueType.Name,
-		truncateString(issue.Fields.Summary, 50),
+		stringutils.Truncate(issue.Fields.Summary, 50),
 		issue.Fields.Status.Name,
 		getAssigneeDisplay(issue),
 	}
-}
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen-3] + "..."
 }

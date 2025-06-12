@@ -206,6 +206,7 @@ func init() {
 - **Encoder Configuration**: Use consistent JSON/YAML encoder settings (indentation, etc.) across commands
 - **Default Output Format**: Commands should use appropriate defaults:
   - Version command: Plain text format (not table) for better CLI UX
+  - Get issue command: Plain text format for better readability  
   - Other commands: Table format for structured data display
 
 ### Version Command Implementation
