@@ -133,9 +133,13 @@ func (c *Client) UpdateIssue(key string, update IssueUpdate) (*Issue, error) {
 	return c.GetIssue(key)
 }
 
-func (c *Client) SearchIssues(jql string, fields ...string) (*SearchResult, error) {
+func (c *Client) SearchIssues(jql string, startAt, maxResults int, fields []string) (*SearchResult, error) {
 	var params []Parameter
 	params = append(params, Parameter{Key: "jql", Value: jql})
+	
+	// Add pagination parameters
+	params = append(params, Parameter{Key: "startAt", Value: fmt.Sprintf("%d", startAt)})
+	params = append(params, Parameter{Key: "maxResults", Value: fmt.Sprintf("%d", maxResults)})
 	
 	if len(fields) > 0 {
 		for _, field := range fields {

@@ -37,7 +37,7 @@ func GetChildIssues(client *Client, parentIssue *Issue) ([]*Issue, error) {
 
 		// Use JQL to batch fetch subtasks
 		subtaskJQL := fmt.Sprintf("key IN (%s)", strings.Join(subtaskKeys, ","))
-		result, err := client.SearchIssues(subtaskJQL, childrenSearchFields...)
+		result, err := client.SearchIssues(subtaskJQL, 0, 50, childrenSearchFields)
 		if err != nil {
 			return nil, fmt.Errorf("failed to batch fetch subtasks: %w", err)
 		}
@@ -52,7 +52,7 @@ func GetChildIssues(client *Client, parentIssue *Issue) ([]*Issue, error) {
 	combinedJQL := fmt.Sprintf("parent = %s OR \"Epic Link\" = %s", parentIssue.Key, parentIssue.Key)
 
 	// Execute the combined JQL query
-	result, err := client.SearchIssues(combinedJQL, childrenSearchFields...)
+	result, err := client.SearchIssues(combinedJQL, 0, 50, childrenSearchFields)
 	if err != nil {
 		return nil, fmt.Errorf("JQL search failed for '%s': %w", combinedJQL, err)
 	}

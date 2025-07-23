@@ -6,6 +6,7 @@ import (
 
 	"github.com/lburgazzoli/gira/cmd/config"
 	"github.com/lburgazzoli/gira/cmd/get"
+	"github.com/lburgazzoli/gira/cmd/search"
 	versionCmd "github.com/lburgazzoli/gira/cmd/version"
 	"github.com/lburgazzoli/gira/internal/version"
 	pkgConfig "github.com/lburgazzoli/gira/pkg/config"
@@ -44,6 +45,7 @@ func init() {
 	// Add subcommands
 	rootCmd.AddCommand(config.Cmd)
 	rootCmd.AddCommand(get.Cmd)
+	rootCmd.AddCommand(search.Cmd)
 	rootCmd.AddCommand(versionCmd.Cmd)
 }
 
